@@ -22,7 +22,26 @@ import (
 	nddv1 "github.com/yndd/ndd-runtime/apis/common/v1"
 	"github.com/yndd/ndd-runtime/pkg/resource"
 	"github.com/yndd/ndd-runtime/pkg/utils"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
+
+var _ IpList = &IpamList{}
+
+// +k8s:deepcopy-gen=false
+type IpList interface {
+	client.ObjectList
+
+	GetIpams() []Ip
+}
+
+func (x *IpamList) GetIpams() []Ip {
+	xs := make([]Ip, len(x.Items))
+	for i, r := range x.Items {
+		r := r // Pin range variable so we can take its address.
+		xs[i] = &r
+	}
+	return xs
+}
 
 var _ Ip = &Ipam{}
 

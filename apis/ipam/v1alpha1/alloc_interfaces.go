@@ -23,10 +23,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ AaAllocList = &AllocList{}
+var _ AaList = &AllocList{}
 
 // +k8s:deepcopy-gen=false
-type AaAllocList interface {
+type AaList interface {
 	client.ObjectList
 
 	GetAllocs() []Aa

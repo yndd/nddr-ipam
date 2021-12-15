@@ -25,28 +25,28 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var _ IpPrefixList = &IpamNetworkInstanceIpPrefixList{}
+var _ IppList = &IpamNetworkInstanceIpPrefixList{}
 
 // +k8s:deepcopy-gen=false
-type IpPrefixList interface {
+type IppList interface {
 	client.ObjectList
 
-	GetIpPrefixes() []IpPrefix
+	GetIpPrefixes() []Ipp
 }
 
-func (x *IpamNetworkInstanceIpPrefixList) GetIpPrefixes() []IpPrefix {
-	ipprefixes := make([]IpPrefix, len(x.Items))
+func (x *IpamNetworkInstanceIpPrefixList) GetIpPrefixes() []Ipp {
+	xs := make([]Ipp, len(x.Items))
 	for i, r := range x.Items {
 		r := r // Pin range variable so we can take its address.
-		ipprefixes[i] = &r
+		xs[i] = &r
 	}
-	return ipprefixes
+	return xs
 }
 
-var _ IpPrefix = &IpamNetworkInstanceIpPrefix{}
+var _ Ipp = &IpamNetworkInstanceIpPrefix{}
 
 // +k8s:deepcopy-gen=false
-type IpPrefix interface {
+type Ipp interface {
 	resource.Object
 	resource.Conditioned
 

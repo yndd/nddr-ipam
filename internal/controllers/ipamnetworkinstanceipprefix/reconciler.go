@@ -73,7 +73,7 @@ type Reconciler struct {
 	record  event.Recorder
 	managed mrManaged
 
-	newIpamNetworkInstanceIpPrefix func() ipamv1alpha1.IpPrefix
+	newIpamNetworkInstanceIpPrefix func() ipamv1alpha1.Ipp
 
 	iptree map[string]*table.RouteTable
 }
@@ -89,7 +89,7 @@ func WithLogger(log logging.Logger) ReconcilerOption {
 	}
 }
 
-func WithNewReourceFn(f func() ipamv1alpha1.IpPrefix) ReconcilerOption {
+func WithNewReourceFn(f func() ipamv1alpha1.Ipp) ReconcilerOption {
 	return func(r *Reconciler) {
 		r.newIpamNetworkInstanceIpPrefix = f
 	}
@@ -117,7 +117,7 @@ func defaultMRManaged(m ctrl.Manager) mrManaged {
 // Setup adds a controller that reconciles ipam.
 func Setup(mgr ctrl.Manager, o controller.Options, nddcopts *shared.NddControllerOptions) error {
 	name := "nddr/" + strings.ToLower(ipamv1alpha1.IpamNetworkInstanceIpPrefixGroupKind)
-	fn := func() ipamv1alpha1.IpPrefix { return &ipamv1alpha1.IpamNetworkInstanceIpPrefix{} }
+	fn := func() ipamv1alpha1.Ipp { return &ipamv1alpha1.IpamNetworkInstanceIpPrefix{} }
 
 	r := NewReconciler(mgr,
 		WithLogger(nddcopts.Logger.WithValues("controller", name)),
@@ -254,7 +254,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 }
 
-func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.IpPrefix, treename string) error {
+func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ipp, treename string) error {
 	log := r.log.WithValues("name", cr.GetName())
 	log.Debug("handle application logic")
 	// get the ipam -> we need this mainly for parent status

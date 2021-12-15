@@ -75,7 +75,7 @@ type Reconciler struct {
 
 	newIpamNetworkInstance func() ipamv1alpha1.In
 	//newIpamNetworkInstanceIpPrefixList func() ipamv1alpha1.IpPrefixList
-	newAllocList func() ipamv1alpha1.AaAllocList
+	newAllocList func() ipamv1alpha1.AaList
 
 	iptree map[string]*table.RouteTable
 }
@@ -103,7 +103,7 @@ func WithIpTree(iptree map[string]*table.RouteTable) ReconcilerOption {
 	}
 }
 
-func WithNewAllocFn(f func() ipamv1alpha1.AaAllocList) ReconcilerOption {
+func WithNewAllocFn(f func() ipamv1alpha1.AaList) ReconcilerOption {
 	return func(r *Reconciler) {
 		r.newAllocList = f
 	}
@@ -127,7 +127,7 @@ func Setup(mgr ctrl.Manager, o controller.Options, nddcopts *shared.NddControlle
 	name := "nddr/" + strings.ToLower(ipamv1alpha1.IpamNetworkInstanceGroupKind)
 	fn := func() ipamv1alpha1.In { return &ipamv1alpha1.IpamNetworkInstance{} }
 	//ippFn := func() ipamv1alpha1.IpPrefixList { return &ipamv1alpha1.IpamNetworkInstanceIpPrefixList{} }
-	afn := func() ipamv1alpha1.AaAllocList { return &ipamv1alpha1.AllocList{} }
+	afn := func() ipamv1alpha1.AaList { return &ipamv1alpha1.AllocList{} }
 
 	r := NewReconciler(mgr,
 		WithLogger(nddcopts.Logger.WithValues("controller", name)),
