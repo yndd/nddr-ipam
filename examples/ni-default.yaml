@@ -1,0 +1,10 @@
+apiVersion: ipam.nddr.yndd.io/v1alpha1
+kind: IpamNetworkInstance
+metadata:
+  name: default
+  namespace: default
+spec:
+  ipam-name: test
+  network-instance:
+    admin-state: enable
+    description: "default network instance"

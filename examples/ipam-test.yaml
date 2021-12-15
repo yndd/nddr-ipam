@@ -1,0 +1,9 @@
+apiVersion: ipam.nddr.yndd.io/v1alpha1
+kind: Ipam
+metadata:
+  name: test
+  namespace: default
+spec:
+  ipam:
+    tenant-name: default
+    vpc-name: default

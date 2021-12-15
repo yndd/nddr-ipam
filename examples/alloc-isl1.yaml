@@ -1,0 +1,19 @@
+apiVersion: ipam.nddr.yndd.io/v1alpha1
+kind: Alloc
+metadata:
+  name: alloc-link-isl1
+  namespace: default
+spec:
+  ipam-name: test
+  network-instance-name: default
+  alloc:
+    address-family: ipv4
+    prefix-length: 31
+    selector:
+    - key: purpose
+      value: isl
+    source-tag:
+    - key: leaf1
+      value: lag-50
+    - key: leaf2
+      value: lag-50

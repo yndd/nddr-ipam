@@ -1,0 +1,17 @@
+apiVersion: ipam.nddr.yndd.io/v1alpha1
+kind: Alloc
+metadata:
+  name: alloc-loopback-leaf1
+  namespace: default
+spec:
+  ipam-name: test
+  network-instance-name: default
+  alloc:
+    address-family: ipv4
+    prefix-length: 32
+    selector:
+    - key: purpose
+      value: loopback
+    source-tag:
+    - key: node
+      value: leaf1

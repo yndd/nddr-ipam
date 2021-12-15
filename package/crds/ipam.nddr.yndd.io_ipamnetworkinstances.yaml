@@ -1,0 +1,411 @@
+
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.4.1
+  creationTimestamp: null
+  name: ipamnetworkinstances.ipam.nddr.yndd.io
+spec:
+  group: ipam.nddr.yndd.io
+  names:
+    kind: IpamNetworkInstance
+    listKind: IpamNetworkInstanceList
+    plural: ipamnetworkinstances
+    singular: ipamnetworkinstance
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: IpamNetworkInstance is the Schema for the IpamNetworkInstance
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: A IpamSpec defines the desired state of a Ipam.
+            properties:
+              ipam-name:
+                description: nddv1.ResourceSpec `json:",inline"`
+                type: string
+              network-instance:
+                description: IpamTenantNetworkInstance struct
+                properties:
+                  admin-state:
+                    default: enable
+                    enum:
+                    - disable
+                    - enable
+                    type: string
+                  allocation-strategy:
+                    default: first-available
+                    enum:
+                    - first-available
+                    - deterministic
+                    type: string
+                  description:
+                    description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
+                    pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
+                    type: string
+                  name:
+                    default: default
+                    description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
+                    pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
+                    type: string
+                  tag:
+                    items:
+                      description: IpamTenantNetworkInstanceTag struct
+                      properties:
+                        key:
+                          description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
+                          pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
+                          type: string
+                        value:
+                          description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
+                          pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
+                          type: string
+                      required:
+                      - key
+                      type: object
+                    type: array
+                type: object
+            type: object
+          status:
+            description: A IpamStatus represents the observed state of a Ipam.
+            properties:
+              conditions:
+                description: Conditions of the resource.
+                items:
+                  description: A Condition that may apply to a resource
+                  properties:
+                    kind:
+                      description: Type of this condition. At most one of each condition
+                        type may apply to a resource at any point in time.
+                      type: string
+                    lastTransitionTime:
+                      description: LastTransitionTime is the last time this condition
+                        transitioned from one status to another.
+                      format: date-time
+                      type: string
+                    message:
+                      description: A Message containing details about this condition's
+                        last transition from one status to another, if any.
+                      type: string
+                    reason:
+                      description: A Reason for this condition's last transition from
+                        one status to another.
+                      type: string
+                    status:
+                      description: Status of this condition; is it currently True,
+                        False, or Unknown?
+                      type: string
+                  required:
+                  - kind
+                  - lastTransitionTime
+                  - reason
+                  - status
+                  type: object
+                type: array
+              network-instance:
+                description: NddrIpamIpamNetworkInstance struct
+                properties:
+                  admin-state:
+                    type: string
+                  allocation-strategy:
+                    type: string
+                  description:
+                    type: string
+                  ip-address:
+                    items:
+                      description: NddrIpamIpamNetworkInstanceIpAddress struct
+                      properties:
+                        address:
+                          type: string
+                        admin-state:
+                          type: string
+                        description:
+                          type: string
+                        dns-name:
+                          type: string
+                        nat-inside:
+                          type: string
+                        nat-outside:
+                          type: string
+                        state:
+                          description: NddrIpamIpamNetworkInstanceIpAddressState struct
+                          properties:
+                            ip-prefix:
+                              description: LastUpdate *string                                              `json:"last-update,omitempty"`
+                                Origin     *string                                              `json:"origin,omitempty"`
+                              items:
+                                description: NddrIpamIpamNetworkInstanceIpAddressStateIpPrefix
+                                  struct
+                                properties:
+                                  prefix:
+                                    type: string
+                                required:
+                                - prefix
+                                type: object
+                              type: array
+                            ip-range:
+                              items:
+                                description: NddrIpamIpamNetworkInstanceIpAddressStateIpRange
+                                  struct
+                                properties:
+                                  end:
+                                    type: string
+                                  start:
+                                    type: string
+                                required:
+                                - end
+                                - start
+                                type: object
+                              type: array
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            tag:
+                              items:
+                                description: NddrIpamIpamNetworkInstanceIpAddressStateTag
+                                  struct
+                                properties:
+                                  key:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - key
+                                type: object
+                              type: array
+                          type: object
+                        tag:
+                          items:
+                            description: NddrIpamIpamNetworkInstanceIpAddressTag struct
+                            properties:
+                              key:
+                                type: string
+                              value:
+                                type: string
+                            required:
+                            - key
+                            type: object
+                          type: array
+                      required:
+                      - address
+                      type: object
+                    type: array
+                  ip-prefix:
+                    items:
+                      description: NddrIpamIpamNetworkInstanceIpPrefix struct
+                      properties:
+                        admin-state:
+                          type: string
+                        description:
+                          type: string
+                        pool:
+                          type: boolean
+                        prefix:
+                          type: string
+                        state:
+                          description: RirName     *string                                   `json:"rir-name,omitempty"`
+                          properties:
+                            adresses:
+                              format: int32
+                              type: integer
+                            child:
+                              description: NddrIpamIpamNetworkInstanceIpPrefixStateChild
+                                struct
+                              properties:
+                                ip-prefix:
+                                  items:
+                                    description: NddrIpamIpamNetworkInstanceIpPrefixStateChildIpPrefix
+                                      struct
+                                    properties:
+                                      prefix:
+                                        type: string
+                                    required:
+                                    - prefix
+                                    type: object
+                                  type: array
+                              type: object
+                            parent:
+                              description: LastUpdate *string                                         `json:"last-update,omitempty"`
+                                Origin     *string                                         `json:"origin,omitempty"`
+                              properties:
+                                ip-prefix:
+                                  items:
+                                    description: NddrIpamIpamNetworkInstanceIpPrefixStateParentIpPrefix
+                                      struct
+                                    properties:
+                                      prefix:
+                                        type: string
+                                    required:
+                                    - prefix
+                                    type: object
+                                  type: array
+                              type: object
+                            reason:
+                              type: string
+                            status:
+                              type: string
+                            tag:
+                              items:
+                                description: NddrIpamIpamNetworkInstanceIpPrefixStateTag
+                                  struct
+                                properties:
+                                  key:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - key
+                                type: object
+                              type: array
+                          type: object
+                        tag:
+                          items:
+                            description: NddrIpamIpamNetworkInstanceIpPrefixTag struct
+                            properties:
+                              key:
+                                type: string
+                              value:
+                                type: string
+                            required:
+                            - key
+                            type: object
+                          type: array
+                      required:
+                      - prefix
+                      type: object
+                    type: array
+                  ip-range:
+                    items:
+                      description: NddrIpamIpamNetworkInstanceIpRange struct
+                      properties:
+                        admin-state:
+                          type: string
+                        description:
+                          type: string
+                        end:
+                          type: string
+                        start:
+                          type: string
+                        state:
+                          description: NddrIpamIpamNetworkInstanceIpRangeState struct
+                          properties:
+                            parent:
+                              description: LastUpdate *string                                        `json:"last-update,omitempty"`
+                                Origin     *string                                        `json:"origin,omitempty"`
+                              properties:
+                                ip-prefix:
+                                  items:
+                                    description: NddrIpamIpamNetworkInstanceIpRangeStateParentIpPrefix
+                                      struct
+                                    properties:
+                                      prefix:
+                                        type: string
+                                    required:
+                                    - prefix
+                                    type: object
+                                  type: array
+                              type: object
+                            reason:
+                              type: string
+                            size:
+                              format: int32
+                              type: integer
+                            status:
+                              type: string
+                            tag:
+                              items:
+                                description: NddrIpamIpamNetworkInstanceIpRangeStateTag
+                                  struct
+                                properties:
+                                  key:
+                                    type: string
+                                  value:
+                                    type: string
+                                required:
+                                - key
+                                type: object
+                              type: array
+                          type: object
+                        tag:
+                          items:
+                            description: NddrIpamIpamNetworkInstanceIpRangeTag struct
+                            properties:
+                              key:
+                                type: string
+                              value:
+                                type: string
+                            required:
+                            - key
+                            type: object
+                          type: array
+                      required:
+                      - end
+                      - start
+                      type: object
+                    type: array
+                  name:
+                    type: string
+                  state:
+                    description: NddrIpamIpamNetworkInstanceState struct
+                    properties:
+                      reason:
+                        description: LastUpdate *string                                `json:"last-update,omitempty"`
+                          Origin     *string                                `json:"origin,omitempty"`
+                        type: string
+                      status:
+                        type: string
+                      tag:
+                        items:
+                          description: NddrIpamIpamNetworkInstanceStateTag struct
+                          properties:
+                            key:
+                              type: string
+                            value:
+                              type: string
+                          required:
+                          - key
+                          type: object
+                        type: array
+                    type: object
+                  tag:
+                    items:
+                      description: NddrIpamIpamNetworkInstanceTag struct
+                      properties:
+                        key:
+                          type: string
+                        value:
+                          type: string
+                      required:
+                      - key
+                      type: object
+                    type: array
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
