@@ -369,21 +369,37 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 				return errors.New("no available routes")
 			}
 
-			// TBD we take the first prefix
-			a, ok := r.iptree[treename].FindFreePrefix(routes[0].IPPrefix(), uint8(cr.GetPrefixLength()))
-			if !ok {
-				log.Debug("allocation failed")
-				return errors.New("allocation failed")
+			if cr.GetIpPrefix() != "" {
+				// allocate prefix fromallocation spec
+				a, err := netaddr.ParseIPPrefix(cr.GetIpPrefix())
+				if err != nil {
+					log.Debug("parsing failed")
+					return err
+				}
+				route := table.NewRoute(a)
+				route.UpdateLabel(l)
+				if err := r.iptree[treename].Add(route); err != nil {
+					log.Debug("route insertion failed")
+					return errors.Wrap(err, "route insertion failed")
+				}
+				prefix = route.String()
+			} else {
+				// TBD we take the first prefix
+				a, ok := r.iptree[treename].FindFreePrefix(routes[0].IPPrefix(), uint8(cr.GetPrefixLength()))
+				if !ok {
+					log.Debug("allocation failed")
+					return errors.New("allocation failed")
+				}
+
+				route := table.NewRoute(a)
+				route.UpdateLabel(l)
+				if err := r.iptree[treename].Add(route); err != nil {
+					log.Debug("route insertion failed")
+					return errors.Wrap(err, "route insertion failed")
+				}
+				prefix = route.String()
 			}
 
-			route := table.NewRoute(a)
-			route.UpdateLabel(l)
-			if err := r.iptree[treename].Add(route); err != nil {
-				log.Debug("route insertion failed")
-				return errors.Wrap(err, "route insertion failed")
-			}
-
-			prefix = route.String()
 		} else {
 			if len(routes) > 1 {
 				// this should never happen since the laels should provide uniqueness
@@ -393,7 +409,8 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 		}
 	}
 
-	cr.SetPrefix(prefix)
+	log.Debug("handleAppLogic allocated Prefix", "Prefix", prefix)
+	cr.SetIpPrefix(prefix)
 
 	return nil
 

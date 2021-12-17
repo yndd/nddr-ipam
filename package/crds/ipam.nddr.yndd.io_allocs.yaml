@@ -16,7 +16,21 @@ spec:
     singular: alloc
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.kind=='Synced')].status
+      name: SYNC
+      type: string
+    - jsonPath: .status.conditions[?(@.kind=='Ready')].status
+      name: STATUS
+      type: string
+    - description: assigned AS
+      jsonPath: .status.alloc.state.ip-prefix
+      name: IPPREFIX
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: Alloc is the Schema for the Alloc API
@@ -44,6 +58,8 @@ spec:
                     enum:
                     - ipv4
                     - ipv6
+                    type: string
+                  ip-prefix:
                     type: string
                   prefix-length:
                     description: kubebuilder:validation:Minimum=0 kubebuilder:validation:Maximum=128
@@ -85,6 +101,8 @@ spec:
                     enum:
                     - ipv4
                     - ipv6
+                    type: string
+                  ip-prefix:
                     type: string
                   prefix-length:
                     description: kubebuilder:validation:Minimum=0 kubebuilder:validation:Maximum=128

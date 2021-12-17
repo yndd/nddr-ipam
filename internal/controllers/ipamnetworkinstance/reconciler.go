@@ -395,14 +395,14 @@ func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, 
 				switch {
 				case !allocIpPrefixFound:
 					log.Debug("strange situation, Prefix found in tree but alloc IP Prefix not assigned")
-					alloc.SetPrefix(prefix)
+					alloc.SetIpPrefix(prefix)
 					if err := r.client.Status().Update(ctx, alloc); err != nil {
 						log.Debug("updating alloc status", "error", err)
 					}
 				case allocIpPrefixFound && prefix != allocIpPrefix:
 					log.Debug("strange situation, Prefix found in tree but alloc AS had different IP Prefix", "tree IP Prefix", prefix, "alloc IP Prefix", allocIpPrefix)
 					// can happen during init, prefix to be added
-					alloc.SetPrefix(prefix)
+					alloc.SetIpPrefix(prefix)
 					if err := r.client.Status().Update(ctx, alloc); err != nil {
 						log.Debug("updating alloc status", "error", err)
 					}

@@ -47,6 +47,7 @@ type IpamAlloc struct {
 	// +kubebuilder:validation:Enum=`ipv4`;`ipv6`
 	// +kubebuilder:default:="ipv4"
 	AddressFamily *string `json:"address-family,omitempty"`
+	IpPrefix      *string `json:"ip-prefix,omitempty"`
 	// kubebuilder:validation:Minimum=0
 	// kubebuilder:validation:Maximum=128
 	PrefixLength *uint32                  `json:"prefix-length,omitempty"`
@@ -82,6 +83,10 @@ type AllocStatus struct {
 
 // Alloc is the Schema for the Alloc API
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="SYNC",type="string",JSONPath=".status.conditions[?(@.kind=='Synced')].status"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.conditions[?(@.kind=='Ready')].status"
+// +kubebuilder:printcolumn:name="IPPREFIX",type="string",JSONPath=".status.alloc.state.ip-prefix",description="assigned AS"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 type Alloc struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

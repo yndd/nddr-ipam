@@ -170,6 +170,11 @@ func (in *IpamAlloc) DeepCopyInto(out *IpamAlloc) {
 		*out = new(string)
 		**out = **in
 	}
+	if in.IpPrefix != nil {
+		in, out := &in.IpPrefix, &out.IpPrefix
+		*out = new(string)
+		**out = **in
+	}
 	if in.PrefixLength != nil {
 		in, out := &in.PrefixLength, &out.PrefixLength
 		*out = new(uint32)

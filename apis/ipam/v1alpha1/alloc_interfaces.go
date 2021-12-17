@@ -52,11 +52,12 @@ type Aa interface {
 	SetConditions(c ...nddv1.Condition)
 	GetIpamName() string
 	GetNetworkInstanceName() string
+	GetIpPrefix() string
 	GetPrefixLength() uint32
 	GetAddressFamily() string
 	GetSourceTag() map[string]string
 	GetSelector() map[string]string
-	SetPrefix(p string)
+	SetIpPrefix(p string)
 	HasIpPrefix() (string, bool)
 }
 
@@ -82,6 +83,13 @@ func (n *Alloc) GetNetworkInstanceName() string {
 		return "enabale"
 	}
 	return *n.Spec.NetworkInstanceName
+}
+
+func (n *Alloc) GetIpPrefix() string {
+	if reflect.ValueOf(n.Spec.Alloc.PrefixLength).IsZero() {
+		return ""
+	}
+	return *n.Spec.Alloc.IpPrefix
 }
 
 func (n *Alloc) GetPrefixLength() uint32 {
@@ -120,7 +128,7 @@ func (n *Alloc) GetSelector() map[string]string {
 	return s
 }
 
-func (n *Alloc) SetPrefix(p string) {
+func (n *Alloc) SetIpPrefix(p string) {
 	n.Status = AllocStatus{
 		Alloc: &NddrIpamAlloc{
 			State: &NddrAllocState{
