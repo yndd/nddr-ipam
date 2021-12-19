@@ -7,11 +7,12 @@ spec:
   ipam-name: test
   network-instance-name: default
   alloc:
-    address-family: ipv4
     prefix-length: 32
     selector:
     - key: purpose
       value: loopback
+    - key: address-family
+      value: ipv4
     source-tag:
     - key: node
       value: leaf1

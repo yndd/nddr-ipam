@@ -17,9 +17,27 @@ limitations under the License.
 package v1alpha1
 
 const (
-	KeyPurpose      = "purpose"       // used in ipam for loopback, isl
-	KeyPrefixLength = "prefix-length" // used in ipam
+	KeyPurpose       = "purpose"       // used in ipam for loopback, isl
+	KeyPrefixLength  = "prefix-length" // used in ipam
+	KeyAddressFamily = "address-family"
 )
+
+type AddressFamily string
+
+const (
+	AddressFamilyIpv4 AddressFamily = "ipv4"
+	AddressFamilyIpv6 AddressFamily = "ipv6"
+)
+
+func (s AddressFamily) String() string {
+	switch s {
+	case AddressFamilyIpv4:
+		return "ipv4"
+	case AddressFamilyIpv6:
+		return "ipv6"
+	}
+	return "unknown"
+}
 
 type Purpose string
 

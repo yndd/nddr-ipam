@@ -296,8 +296,19 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ipp, tr
 		cr.SetReason(fmt.Sprintf("parse ip prefix failed %v", err))
 		return errors.Wrap(err, "ParseIPPrefix failed")
 	}
+	// we derive the address family from the prefix, to avoid exposing it to the user
+	var af string
+	if p.IP().Is4() {
+		af = string(ipamv1alpha1.AddressFamilyIpv4)
+	}
+	if p.IP().Is6() {
+		af = string(ipamv1alpha1.AddressFamilyIpv6)
+	}
+	// we add the address family in the tag/label to allow to selec the prefix on this basis
+	tags := cr.GetTags()
+	tags[ipamv1alpha1.KeyAddressFamily] = af
 	route := table.NewRoute(p)
-	route.UpdateLabel(cr.GetTags())
+	route.UpdateLabel(tags)
 
 	if err := r.iptree[treename].Add(route); err != nil {
 		log.Debug("IPPrefix insertion failed", "prefix", p)

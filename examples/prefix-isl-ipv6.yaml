@@ -1,0 +1,13 @@
+apiVersion: ipam.nddr.yndd.io/v1alpha1
+kind: IpamNetworkInstanceIpPrefix
+metadata:
+  name: ipam-test-ni-default-isl-ipv4
+  namespace: default
+spec:
+  ipam-name: test
+  network-instance-name: default
+  ip-prefix:
+    prefix: 3100:100::/48
+    tag:
+    - key: purpose
+      value: isl
