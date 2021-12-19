@@ -86,7 +86,7 @@ func (n *Alloc) GetNetworkInstanceName() string {
 }
 
 func (n *Alloc) GetIpPrefix() string {
-	if reflect.ValueOf(n.Spec.Alloc.PrefixLength).IsZero() {
+	if reflect.ValueOf(n.Spec.Alloc.IpPrefix).IsZero() {
 		return ""
 	}
 	return *n.Spec.Alloc.IpPrefix
