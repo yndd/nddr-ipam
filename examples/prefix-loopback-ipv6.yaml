@@ -1,7 +1,7 @@
 apiVersion: ipam.nddr.yndd.io/v1alpha1
 kind: IpamNetworkInstanceIpPrefix
 metadata:
-  name: ipam-test-ni-default-loopback-ipv4
+  name: ipam-test-ni-default-loopback-ipv6
   namespace: default
 spec:
   ipam-name: test
