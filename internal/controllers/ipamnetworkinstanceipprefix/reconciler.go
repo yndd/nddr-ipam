@@ -32,6 +32,7 @@ import (
 	ipamv1alpha1 "github.com/yndd/nddr-ipam/apis/ipam/v1alpha1"
 	"github.com/yndd/nddr-ipam/internal/shared"
 	"inet.af/netaddr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -74,6 +75,7 @@ type Reconciler struct {
 	managed mrManaged
 
 	newIpamNetworkInstanceIpPrefix func() ipamv1alpha1.Ipp
+	newIpamNetworkInstance         func() ipamv1alpha1.In
 
 	iptree map[string]*table.RouteTable
 }
@@ -101,6 +103,12 @@ func WithIpTree(iptree map[string]*table.RouteTable) ReconcilerOption {
 	}
 }
 
+func WithNewIpamNetworkInstanceFn(f func() ipamv1alpha1.In) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.newIpamNetworkInstance = f
+	}
+}
+
 // WithRecorder specifies how the Reconciler should record Kubernetes events.
 func WithRecorder(er event.Recorder) ReconcilerOption {
 	return func(r *Reconciler) {
@@ -118,11 +126,13 @@ func defaultMRManaged(m ctrl.Manager) mrManaged {
 func Setup(mgr ctrl.Manager, o controller.Options, nddcopts *shared.NddControllerOptions) error {
 	name := "nddr/" + strings.ToLower(ipamv1alpha1.IpamNetworkInstanceIpPrefixGroupKind)
 	fn := func() ipamv1alpha1.Ipp { return &ipamv1alpha1.IpamNetworkInstanceIpPrefix{} }
+	nifn := func() ipamv1alpha1.In { return &ipamv1alpha1.IpamNetworkInstance{} }
 
 	r := NewReconciler(mgr,
 		WithLogger(nddcopts.Logger.WithValues("controller", name)),
 		WithNewReourceFn(fn),
 		WithIpTree(nddcopts.Iptree),
+		WithNewIpamNetworkInstanceFn(nifn),
 		WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
 	)
 
@@ -172,13 +182,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 	record := r.record.WithAnnotations("name", cr.GetAnnotations()[cr.GetName()])
 
-	treename := strings.Join([]string{cr.GetNamespace(), cr.GetNetworkInstanceName()}, "/")
+	crName := strings.Join([]string{cr.GetNamespace(), cr.GetOrganizationName(), cr.GetIpamName(), cr.GetNetworkInstanceName()}, ".")
 
 	if meta.WasDeleted(cr) {
 		log = log.WithValues("deletion-timestamp", cr.GetDeletionTimestamp())
 
 		// check if allocations exists
-		if _, ok := r.iptree[treename]; ok {
+		if _, ok := r.iptree[crName]; ok {
 			p, err := netaddr.ParseIPPrefix(cr.GetPrefix())
 			if err != nil {
 				record.Event(cr, event.Warning(reasonCannotParseIpPrefix, err))
@@ -186,7 +196,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 				cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
 				return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 			}
-			routes := r.iptree[treename].Children(p)
+			routes := r.iptree[crName].Children(p)
 
 			if len(routes) > 0 {
 				// We cannot delete the prefix yet due to existing allocations
@@ -198,7 +208,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			route := table.NewRoute(p)
 			route.UpdateLabel(cr.GetTags())
 
-			if _, _, err := r.iptree[treename].Delete(route); err != nil {
+			if _, _, err := r.iptree[crName].Delete(route); err != nil {
 				log.Debug("IPPrefix deleteion failed", "prefix", p)
 				cr.SetStatus("down")
 				cr.SetReason(fmt.Sprintf("IPPrefix deletion failed %v", err))
@@ -243,7 +253,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 	}
 
-	if err := r.handleAppLogic(ctx, cr, treename); err != nil {
+	if err := r.handleAppLogic(ctx, cr, crName); err != nil {
 		record.Event(cr, event.Warning(reasonAppLogicFailed, err))
 		log.Debug("handle applogic failed", "error", err)
 		cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
@@ -254,39 +264,32 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 }
 
-func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ipp, treename string) error {
+func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ipp, crName string) error {
 	log := r.log.WithValues("name", cr.GetName())
 	log.Debug("handle application logic")
-	// get the ipam -> we need this mainly for parent status
-	ipam := &ipamv1alpha1.Ipam{}
+	niName := strings.Join([]string{cr.GetOrganizationName(), cr.GetIpamName(), cr.GetNetworkInstanceName()}, ".")
+
+	// get the deployment
+	ni := r.newIpamNetworkInstance()
 	if err := r.client.Get(ctx, types.NamespacedName{
 		Namespace: cr.GetNamespace(),
-		Name:      cr.GetIpamName()}, ipam); err != nil {
-		// can happen when the ipam is not found
-		log.Debug("Ipam not available")
+		Name:      niName}, ni); err != nil {
+		// can happen when the deployment is not found
 		cr.SetStatus("down")
-		cr.SetReason("Ipam not available")
-		return errors.Wrap(err, "Ipam not available")
+		cr.SetReason("network instance not found")
+		return errors.Wrap(err, "network instance not found")
 	}
-	// ipam found
-
-	// get networkinstance -> we need this mainly for parent status
-	ni := &ipamv1alpha1.IpamNetworkInstance{}
-	if err := r.client.Get(ctx, types.NamespacedName{
-		Namespace: cr.GetNamespace(),
-		Name:      cr.GetNetworkInstanceName()}, ni); err != nil {
-		// can happen when the networkinstance is not found
-		log.Debug("NetworkInstance not available")
+	if ni.GetCondition(ipamv1alpha1.ConditionKindReady).Status != corev1.ConditionTrue {
 		cr.SetStatus("down")
-		cr.SetReason("NetworkInstance not available")
-		return errors.Wrap(err, "NetworkInstance not available")
+		cr.SetReason("network instance not ready")
+		return errors.New("network instance not ready")
 	}
 
-	if _, ok := r.iptree[treename]; !ok {
+	if _, ok := r.iptree[crName]; !ok {
 		log.Debug("Parent Routing table not ready")
 		cr.SetStatus("down")
 		cr.SetReason("Parent Routing table not ready")
-		return errors.New("Parent Routing table not ready ")
+		return errors.New("ipam not ready")
 	}
 
 	p, err := netaddr.ParseIPPrefix(cr.GetPrefix())
@@ -310,7 +313,7 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ipp, tr
 	route := table.NewRoute(p)
 	route.UpdateLabel(tags)
 
-	if err := r.iptree[treename].Add(route); err != nil {
+	if err := r.iptree[crName].Add(route); err != nil {
 		log.Debug("IPPrefix insertion failed", "prefix", p)
 		cr.SetStatus("down")
 		cr.SetReason(fmt.Sprintf("IPPrefix insertion failed %v", err))
@@ -319,6 +322,10 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ipp, tr
 	log.Debug("IPPrefix insert success", "prefix", p)
 	cr.SetStatus("up")
 	cr.SetReason("")
+	cr.SetAddressFamily(af)
+	cr.SetOrganizationName(cr.GetOrganizationName())
+	cr.SetIpamName(cr.GetIpamName())
+	cr.SetNetworkInstanceName(cr.GetNetworkInstanceName())
 
 	return nil
 

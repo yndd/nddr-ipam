@@ -26,7 +26,8 @@ type NddControllerOptions struct {
 	Logger    logging.Logger
 	Poll      time.Duration
 	Namespace string
-	Iptree    map[string]*table.RouteTable
+	// first map represents namespace/organization/ipam, second map represents network-instance
+	Iptree map[string]*table.RouteTable
 	//Yentry      *yentry.Entry
 	//GnmiAddress string
 }

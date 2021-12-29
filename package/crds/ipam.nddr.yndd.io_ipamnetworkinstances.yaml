@@ -16,7 +16,26 @@ spec:
     singular: ipamnetworkinstance
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.kind=='Synced')].status
+      name: SYNC
+      type: string
+    - jsonPath: .status.conditions[?(@.kind=='Ready')].status
+      name: STATUS
+      type: string
+    - jsonPath: .status.organization-name
+      name: ORG
+      type: string
+    - jsonPath: .status.ipam-name
+      name: IPAM
+      type: string
+    - jsonPath: .status.network-instance-name
+      name: NI
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: IpamNetworkInstance is the Schema for the IpamNetworkInstance
@@ -37,11 +56,8 @@ spec:
           spec:
             description: A IpamSpec defines the desired state of a Ipam.
             properties:
-              ipam-name:
-                description: nddv1.ResourceSpec `json:",inline"`
-                type: string
               network-instance:
-                description: IpamTenantNetworkInstance struct
+                description: nddv1.ResourceSpec `json:",inline"`
                 properties:
                   admin-state:
                     default: enable
@@ -55,6 +71,16 @@ spec:
                     - first-available
                     - deterministic
                     type: string
+                  default-prefix-length:
+                    additionalProperties:
+                      properties:
+                        address-family:
+                          additionalProperties:
+                            format: int32
+                            type: integer
+                          type: object
+                      type: object
+                    type: object
                   description:
                     description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
                     pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
@@ -66,18 +92,11 @@ spec:
                     type: string
                   tag:
                     items:
-                      description: IpamTenantNetworkInstanceTag struct
                       properties:
                         key:
-                          description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
-                          pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
                           type: string
                         value:
-                          description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
-                          pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
                           type: string
-                      required:
-                      - key
                       type: object
                     type: array
                 type: object
@@ -118,6 +137,8 @@ spec:
                   - status
                   type: object
                 type: array
+              ipam-name:
+                type: string
               network-instance:
                 description: NddrIpamIpamNetworkInstance struct
                 properties:
@@ -179,28 +200,21 @@ spec:
                               type: string
                             tag:
                               items:
-                                description: NddrIpamIpamNetworkInstanceIpAddressStateTag
-                                  struct
                                 properties:
                                   key:
                                     type: string
                                   value:
                                     type: string
-                                required:
-                                - key
                                 type: object
                               type: array
                           type: object
                         tag:
                           items:
-                            description: NddrIpamIpamNetworkInstanceIpAddressTag struct
                             properties:
                               key:
                                 type: string
                               value:
                                 type: string
-                            required:
-                            - key
                             type: object
                           type: array
                       required:
@@ -263,28 +277,21 @@ spec:
                               type: string
                             tag:
                               items:
-                                description: NddrIpamIpamNetworkInstanceIpPrefixStateTag
-                                  struct
                                 properties:
                                   key:
                                     type: string
                                   value:
                                     type: string
-                                required:
-                                - key
                                 type: object
                               type: array
                           type: object
                         tag:
                           items:
-                            description: NddrIpamIpamNetworkInstanceIpPrefixTag struct
                             properties:
                               key:
                                 type: string
                               value:
                                 type: string
-                            required:
-                            - key
                             type: object
                           type: array
                       required:
@@ -331,28 +338,21 @@ spec:
                               type: string
                             tag:
                               items:
-                                description: NddrIpamIpamNetworkInstanceIpRangeStateTag
-                                  struct
                                 properties:
                                   key:
                                     type: string
                                   value:
                                     type: string
-                                required:
-                                - key
                                 type: object
                               type: array
                           type: object
                         tag:
                           items:
-                            description: NddrIpamIpamNetworkInstanceIpRangeTag struct
                             properties:
                               key:
                                 type: string
                               value:
                                 type: string
-                            required:
-                            - key
                             type: object
                           type: array
                       required:
@@ -373,30 +373,28 @@ spec:
                         type: string
                       tag:
                         items:
-                          description: NddrIpamIpamNetworkInstanceStateTag struct
                           properties:
                             key:
                               type: string
                             value:
                               type: string
-                          required:
-                          - key
                           type: object
                         type: array
                     type: object
                   tag:
                     items:
-                      description: NddrIpamIpamNetworkInstanceTag struct
                       properties:
                         key:
                           type: string
                         value:
                           type: string
-                      required:
-                      - key
                       type: object
                     type: array
                 type: object
+              network-instance-name:
+                type: string
+              organization-name:
+                type: string
             type: object
         type: object
     served: true

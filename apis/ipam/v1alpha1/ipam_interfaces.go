@@ -18,10 +18,12 @@ package v1alpha1
 
 import (
 	"reflect"
+	"strings"
 
 	nddv1 "github.com/yndd/ndd-runtime/apis/common/v1"
 	"github.com/yndd/ndd-runtime/pkg/resource"
 	"github.com/yndd/ndd-runtime/pkg/utils"
+	nddov1 "github.com/yndd/nddo-runtime/apis/common/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -50,14 +52,17 @@ type Ip interface {
 	resource.Object
 	resource.Conditioned
 
-	GetTenantName() string
-	GetVpcName() string
+	GetOrganizationName() string
+	GetIpamName() string
 	GetAdminState() string
 	GetDescription() string
 	InitializeResource() error
 	SetStatus(string)
 	SetReason(string)
 	GetStatus() string
+
+	SetOrganizationName(string)
+	SetIpamName(string)
 }
 
 // GetCondition of this Network Node.
@@ -70,18 +75,20 @@ func (x *Ipam) SetConditions(c ...nddv1.Condition) {
 	x.Status.SetConditions(c...)
 }
 
-func (x *Ipam) GetTenantName() string {
-	if reflect.ValueOf(x.Spec.Ipam.TenantName).IsZero() {
-		return ""
+func (x *Ipam) GetOrganizationName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 2 {
+		return split[0]
 	}
-	return *x.Spec.Ipam.TenantName
+	return ""
 }
 
-func (x *Ipam) GetVpcName() string {
-	if reflect.ValueOf(x.Spec.Ipam.VpcName).IsZero() {
-		return ""
+func (x *Ipam) GetIpamName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 2 {
+		return split[1]
 	}
-	return *x.Spec.Ipam.VpcName
+	return ""
 }
 
 func (x *Ipam) GetAdminState() string {
@@ -113,7 +120,7 @@ func (x *Ipam) InitializeResource() error {
 		State: &NddrIpamIpamState{
 			Status: utils.StringPtr(""),
 			Reason: utils.StringPtr(""),
-			Tag:    make([]*NddrIpamIpamStateTag, 0),
+			Tag:    make([]*nddov1.Tag, 0),
 		},
 	}
 	return nil
@@ -132,4 +139,12 @@ func (x *Ipam) GetStatus() string {
 		return *x.Status.Ipam.State.Status
 	}
 	return "unknown"
+}
+
+func (x *Ipam) SetOrganizationName(s string) {
+	x.Status.OrganizationName = &s
+}
+
+func (x *Ipam) SetIpamName(s string) {
+	x.Status.IpamName = &s
 }

@@ -18,10 +18,12 @@ package v1alpha1
 
 import (
 	"reflect"
+	"strings"
 
 	nddv1 "github.com/yndd/ndd-runtime/apis/common/v1"
 	"github.com/yndd/ndd-runtime/pkg/resource"
 	"github.com/yndd/ndd-runtime/pkg/utils"
+	nddov1 "github.com/yndd/nddo-runtime/apis/common/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -50,8 +52,10 @@ type Ipp interface {
 	resource.Object
 	resource.Conditioned
 
+	GetOrganizationName() string
 	GetIpamName() string
 	GetNetworkInstanceName() string
+	GetIpPrefixName() string
 	GetPrefix() string
 	GetPool() bool
 	GetAdminState() string
@@ -62,6 +66,12 @@ type Ipp interface {
 	SetReason(string)
 	GetStatus() string
 	GetAllocatedPrefixes() uint32
+
+	SetAddressFamily(string)
+	SetOrganizationName(string)
+	SetIpamName(string)
+	SetNetworkInstanceName(string)
+	SetIpPrefixName(string)
 }
 
 // GetCondition of this Network Node.
@@ -74,18 +84,36 @@ func (x *IpamNetworkInstanceIpPrefix) SetConditions(c ...nddv1.Condition) {
 	x.Status.SetConditions(c...)
 }
 
-func (x *IpamNetworkInstanceIpPrefix) GetIpamName() string {
-	if reflect.ValueOf(x.Spec.IpamName).IsZero() {
-		return ""
+func (x *IpamNetworkInstanceIpPrefix) GetOrganizationName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 4 {
+		return split[0]
 	}
-	return *x.Spec.IpamName
+	return ""
+}
+
+func (x *IpamNetworkInstanceIpPrefix) GetIpamName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 4 {
+		return split[1]
+	}
+	return ""
 }
 
 func (x *IpamNetworkInstanceIpPrefix) GetNetworkInstanceName() string {
-	if reflect.ValueOf(x.Spec.NetworkInstanceName).IsZero() {
-		return ""
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 4 {
+		return split[2]
 	}
-	return *x.Spec.NetworkInstanceName
+	return ""
+}
+
+func (x *IpamNetworkInstanceIpPrefix) GetIpPrefixName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 4 {
+		return split[3]
+	}
+	return ""
 }
 
 func (x *IpamNetworkInstanceIpPrefix) GetPrefix() string {
@@ -128,9 +156,9 @@ func (x *IpamNetworkInstanceIpPrefix) GetTags() map[string]string {
 }
 
 func (x *IpamNetworkInstanceIpPrefix) InitializeResource() error {
-	tags := make([]*NddrIpamIpamNetworkInstanceIpPrefixTag, 0, len(x.Spec.IpamNetworkInstanceIpPrefix.Tag))
+	tags := make([]*nddov1.Tag, 0, len(x.Spec.IpamNetworkInstanceIpPrefix.Tag))
 	for _, tag := range x.Spec.IpamNetworkInstanceIpPrefix.Tag {
-		tags = append(tags, &NddrIpamIpamNetworkInstanceIpPrefixTag{
+		tags = append(tags, &nddov1.Tag{
 			Key:   tag.Key,
 			Value: tag.Value,
 		})
@@ -156,7 +184,7 @@ func (x *IpamNetworkInstanceIpPrefix) InitializeResource() error {
 		State: &NddrIpamIpamNetworkInstanceIpPrefixState{
 			Status:   utils.StringPtr(""),
 			Reason:   utils.StringPtr(""),
-			Tag:      make([]*NddrIpamIpamNetworkInstanceIpPrefixStateTag, 0),
+			Tag:      make([]*nddov1.Tag, 0),
 			Adresses: utils.Uint32Ptr(0),
 			Child:    &NddrIpamIpamNetworkInstanceIpPrefixStateChild{},
 			Parent:   &NddrIpamIpamNetworkInstanceIpPrefixStateParent{},
@@ -185,4 +213,33 @@ func (x *IpamNetworkInstanceIpPrefix) GetAllocatedPrefixes() uint32 {
 		return *x.Status.IpamNetworkInstanceIpPrefix.State.Adresses
 	}
 	return 0
+}
+
+func (x *IpamNetworkInstanceIpPrefix) SetOrganizationName(s string) {
+	x.Status.OrganizationName = &s
+}
+
+func (x *IpamNetworkInstanceIpPrefix) SetIpamName(s string) {
+	x.Status.IpamName = &s
+}
+
+func (x *IpamNetworkInstanceIpPrefix) SetNetworkInstanceName(s string) {
+	x.Status.NetworkInstanceName = &s
+}
+
+func (x *IpamNetworkInstanceIpPrefix) SetIpPrefixName(s string) {
+	x.Status.IpPrefixName = &s
+}
+
+func (x *IpamNetworkInstanceIpPrefix) SetAddressFamily(s string) {
+	for _, tag := range x.Status.IpamNetworkInstanceIpPrefix.State.Tag {
+		if *tag.Key == KeyAddressFamily {
+			tag.Value = &s
+			return
+		}
+	}
+	x.Status.IpamNetworkInstanceIpPrefix.State.Tag = append(x.Status.IpamNetworkInstanceIpPrefix.State.Tag, &nddov1.Tag{
+		Key:   utils.StringPtr(KeyAddressFamily),
+		Value: &s,
+	})
 }

@@ -27,12 +27,14 @@ import (
 	"github.com/yndd/ndd-runtime/pkg/logging"
 	"github.com/yndd/ndd-runtime/pkg/meta"
 	"github.com/yndd/ndd-runtime/pkg/resource"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	ipamv1alpha1 "github.com/yndd/nddr-ipam/apis/ipam/v1alpha1"
 	"github.com/yndd/nddr-ipam/internal/shared"
+	orgv1alpha1 "github.com/yndd/nddr-organization/apis/org/v1alpha1"
 )
 
 const (
@@ -68,7 +70,10 @@ type Reconciler struct {
 	record  event.Recorder
 	managed mrManaged
 
-	newIpam func() ipamv1alpha1.Ip
+	newIpam         func() ipamv1alpha1.Ip
+	newOrganization func() orgv1alpha1.Org
+
+	//iptree map[string]*table.RouteTable
 }
 
 type mrManaged struct {
@@ -88,6 +93,20 @@ func WithNewReourceFn(f func() ipamv1alpha1.Ip) ReconcilerOption {
 	}
 }
 
+func WithNewOrganizationFn(f func() orgv1alpha1.Org) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.newOrganization = f
+	}
+}
+
+/*
+func WithIpTree(iptree map[string]*table.RouteTable) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.iptree = iptree
+	}
+}
+*/
+
 // WithRecorder specifies how the Reconciler should record Kubernetes events.
 func WithRecorder(er event.Recorder) ReconcilerOption {
 	return func(r *Reconciler) {
@@ -105,10 +124,13 @@ func defaultMRManaged(m ctrl.Manager) mrManaged {
 func Setup(mgr ctrl.Manager, o controller.Options, nddcopts *shared.NddControllerOptions) error {
 	name := "nddr/" + strings.ToLower(ipamv1alpha1.IpamGroupKind)
 	fn := func() ipamv1alpha1.Ip { return &ipamv1alpha1.Ipam{} }
+	orgfn := func() orgv1alpha1.Org { return &orgv1alpha1.Organization{} }
 
 	r := NewReconciler(mgr,
 		WithLogger(nddcopts.Logger.WithValues("controller", name)),
 		WithNewReourceFn(fn),
+		WithNewOrganizationFn(orgfn),
+		//WithIpTree(nddcopts.Iptree),
 		WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
 	)
 
@@ -157,6 +179,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 	record := r.record.WithAnnotations("name", cr.GetAnnotations()[cr.GetName()])
 
+	crName := strings.Join([]string{cr.GetNamespace(), cr.GetOrganizationName(), cr.GetIpamName()}, ".")
+
 	if meta.WasDeleted(cr) {
 		log = log.WithValues("deletion-timestamp", cr.GetDeletionTimestamp())
 
@@ -198,7 +222,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 	}
 
-	if err := r.handleAppLogic(ctx, cr); err != nil {
+	if err := r.handleAppLogic(ctx, cr, crName); err != nil {
 		record.Event(cr, event.Warning(reasonAppLogicFailed, err))
 		log.Debug("handle applogic failed", "error", err)
 		cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
@@ -210,7 +234,36 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 }
 
-func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ip) error {
+func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Ip, crName string) error {
+	// get the deployment
+	org := r.newOrganization()
+	if err := r.client.Get(ctx, types.NamespacedName{
+		Namespace: cr.GetNamespace(),
+		Name:      cr.GetOrganizationName()}, org); err != nil {
+		// can happen when the deployment is not found
+		cr.SetStatus("down")
+		cr.SetReason("organization not found")
+		return errors.Wrap(err, "organization not found")
+	}
+	/*
+		if org.GetCondition(orgv1alpha1.ConditionKindReady).Status != corev1.ConditionTrue {
+			cr.SetStatus("down")
+			cr.SetReason("organization not ready")
+			return errors.New("organization not ready")
+		}
+	*/
+
+	if err := r.handleStatus(ctx, cr); err != nil {
+		return err
+	}
+
+	cr.SetOrganizationName(cr.GetOrganizationName())
+	cr.SetIpamName(cr.GetIpamName())
+	return nil
+
+}
+
+func (r *Reconciler) handleStatus(ctx context.Context, cr ipamv1alpha1.Ip) error {
 	if cr.GetAdminState() == "disable" {
 		cr.SetStatus("down")
 		cr.SetReason("admin disable")

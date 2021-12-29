@@ -17,6 +17,7 @@ package v1alpha1
 
 import (
 	"reflect"
+	"strings"
 
 	nddv1 "github.com/yndd/ndd-runtime/apis/common/v1"
 	"github.com/yndd/ndd-runtime/pkg/resource"
@@ -50,10 +51,11 @@ type Aa interface {
 
 	GetCondition(ct nddv1.ConditionKind) nddv1.Condition
 	SetConditions(c ...nddv1.Condition)
+	GetOrganizationName() string
 	GetIpamName() string
 	GetNetworkInstanceName() string
 	GetIpPrefix() string
-	GetPrefixLength() uint32
+	//GetPrefixLength() *uint32
 	GetAddressFamily() string
 	GetSourceTag() map[string]string
 	GetSelector() map[string]string
@@ -71,18 +73,28 @@ func (x *Alloc) SetConditions(c ...nddv1.Condition) {
 	x.Status.SetConditions(c...)
 }
 
-func (n *Alloc) GetIpamName() string {
-	if reflect.ValueOf(n.Spec.IpamName).IsZero() {
-		return "enabale"
+func (x *Alloc) GetOrganizationName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 3 {
+		return split[0]
 	}
-	return *n.Spec.IpamName
+	return ""
 }
 
-func (n *Alloc) GetNetworkInstanceName() string {
-	if reflect.ValueOf(n.Spec.NetworkInstanceName).IsZero() {
-		return "enabale"
+func (x *Alloc) GetIpamName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 3 {
+		return split[1]
 	}
-	return *n.Spec.NetworkInstanceName
+	return ""
+}
+
+func (x *Alloc) GetNetworkInstanceName() string {
+	split := strings.Split(x.GetName(), ".")
+	if len(split) >= 3 {
+		return split[2]
+	}
+	return ""
 }
 
 func (n *Alloc) GetIpPrefix() string {
@@ -92,12 +104,14 @@ func (n *Alloc) GetIpPrefix() string {
 	return *n.Spec.Alloc.IpPrefix
 }
 
-func (n *Alloc) GetPrefixLength() uint32 {
+/*
+func (n *Alloc) GetPrefixLength() *uint32 {
 	if reflect.ValueOf(n.Spec.Alloc.PrefixLength).IsZero() {
-		return 0
+		return nil
 	}
-	return *n.Spec.Alloc.PrefixLength
+	return n.Spec.Alloc.PrefixLength
 }
+*/
 
 func (n *Alloc) GetAddressFamily() string {
 	if reflect.ValueOf(n.Spec.Alloc.AddressFamily).IsZero() {

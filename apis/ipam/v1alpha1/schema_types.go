@@ -16,6 +16,10 @@ limitations under the License.
 
 package v1alpha1
 
+import (
+	nddov1 "github.com/yndd/nddo-runtime/apis/common/v1"
+)
+
 // NddrIpam struct
 type NddrIpam struct {
 	Ipam *NddrIpamIpam `json:"ipam,omitempty"`
@@ -44,7 +48,7 @@ type NddrIpamIpamNetworkInstance struct {
 	IpRange            []*NddrIpamIpamNetworkInstanceIpRange   `json:"ip-range,omitempty"`
 	Name               *string                                 `json:"name,omitempty"`
 	State              *NddrIpamIpamNetworkInstanceState       `json:"state,omitempty"`
-	Tag                []*NddrIpamIpamNetworkInstanceTag       `json:"tag,omitempty"`
+	Tag                []*nddov1.Tag                           `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpAddress struct
@@ -56,7 +60,7 @@ type NddrIpamIpamNetworkInstanceIpAddress struct {
 	NatInside   *string                                    `json:"nat-inside,omitempty"`
 	NatOutside  *string                                    `json:"nat-outside,omitempty"`
 	State       *NddrIpamIpamNetworkInstanceIpAddressState `json:"state,omitempty"`
-	Tag         []*NddrIpamIpamNetworkInstanceIpAddressTag `json:"tag,omitempty"`
+	Tag         []*nddov1.Tag                              `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpAddressState struct
@@ -67,7 +71,7 @@ type NddrIpamIpamNetworkInstanceIpAddressState struct {
 	IpRange  []*NddrIpamIpamNetworkInstanceIpAddressStateIpRange  `json:"ip-range,omitempty"`
 	Reason   *string                                              `json:"reason,omitempty"`
 	Status   *string                                              `json:"status,omitempty"`
-	Tag      []*NddrIpamIpamNetworkInstanceIpAddressStateTag      `json:"tag,omitempty"`
+	Tag      []*nddov1.Tag                                        `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpAddressStateIpPrefix struct
@@ -81,18 +85,6 @@ type NddrIpamIpamNetworkInstanceIpAddressStateIpRange struct {
 	Start *string `json:"start"`
 }
 
-// NddrIpamIpamNetworkInstanceIpAddressStateTag struct
-type NddrIpamIpamNetworkInstanceIpAddressStateTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
-// NddrIpamIpamNetworkInstanceIpAddressTag struct
-type NddrIpamIpamNetworkInstanceIpAddressTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
 // NddrIpamIpamNetworkInstanceIpPrefix struct
 type NddrIpamIpamNetworkInstanceIpPrefix struct {
 	AdminState  *string `json:"admin-state,omitempty"`
@@ -101,7 +93,7 @@ type NddrIpamIpamNetworkInstanceIpPrefix struct {
 	Prefix      *string `json:"prefix"`
 	//RirName     *string                                   `json:"rir-name,omitempty"`
 	State *NddrIpamIpamNetworkInstanceIpPrefixState `json:"state,omitempty"`
-	Tag   []*NddrIpamIpamNetworkInstanceIpPrefixTag `json:"tag,omitempty"`
+	Tag   []*nddov1.Tag                             `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpPrefixState struct
@@ -113,7 +105,7 @@ type NddrIpamIpamNetworkInstanceIpPrefixState struct {
 	Parent *NddrIpamIpamNetworkInstanceIpPrefixStateParent `json:"parent,omitempty"`
 	Reason *string                                         `json:"reason,omitempty"`
 	Status *string                                         `json:"status,omitempty"`
-	Tag    []*NddrIpamIpamNetworkInstanceIpPrefixStateTag  `json:"tag,omitempty"`
+	Tag    []*nddov1.Tag                                   `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpPrefixStateChild struct
@@ -136,18 +128,6 @@ type NddrIpamIpamNetworkInstanceIpPrefixStateParentIpPrefix struct {
 	Prefix *string `json:"prefix"`
 }
 
-// NddrIpamIpamNetworkInstanceIpPrefixStateTag struct
-type NddrIpamIpamNetworkInstanceIpPrefixStateTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
-// NddrIpamIpamNetworkInstanceIpPrefixTag struct
-type NddrIpamIpamNetworkInstanceIpPrefixTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
 // NddrIpamIpamNetworkInstanceIpRange struct
 type NddrIpamIpamNetworkInstanceIpRange struct {
 	AdminState  *string                                  `json:"admin-state,omitempty"`
@@ -155,7 +135,7 @@ type NddrIpamIpamNetworkInstanceIpRange struct {
 	End         *string                                  `json:"end"`
 	Start       *string                                  `json:"start"`
 	State       *NddrIpamIpamNetworkInstanceIpRangeState `json:"state,omitempty"`
-	Tag         []*NddrIpamIpamNetworkInstanceIpRangeTag `json:"tag,omitempty"`
+	Tag         []*nddov1.Tag                            `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpRangeState struct
@@ -166,7 +146,7 @@ type NddrIpamIpamNetworkInstanceIpRangeState struct {
 	Reason *string                                        `json:"reason,omitempty"`
 	Size   *uint32                                        `json:"size,omitempty"`
 	Status *string                                        `json:"status,omitempty"`
-	Tag    []*NddrIpamIpamNetworkInstanceIpRangeStateTag  `json:"tag,omitempty"`
+	Tag    []*nddov1.Tag                                  `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamNetworkInstanceIpRangeStateParent struct
@@ -179,58 +159,22 @@ type NddrIpamIpamNetworkInstanceIpRangeStateParentIpPrefix struct {
 	Prefix *string `json:"prefix"`
 }
 
-// NddrIpamIpamNetworkInstanceIpRangeStateTag struct
-type NddrIpamIpamNetworkInstanceIpRangeStateTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
-// NddrIpamIpamNetworkInstanceIpRangeTag struct
-type NddrIpamIpamNetworkInstanceIpRangeTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
 // NddrIpamIpamNetworkInstanceState struct
 type NddrIpamIpamNetworkInstanceState struct {
 	//LastUpdate *string                                `json:"last-update,omitempty"`
 	//Origin     *string                                `json:"origin,omitempty"`
-	Reason *string                                `json:"reason,omitempty"`
-	Status *string                                `json:"status,omitempty"`
-	Tag    []*NddrIpamIpamNetworkInstanceStateTag `json:"tag,omitempty"`
-}
-
-// NddrIpamIpamNetworkInstanceStateTag struct
-type NddrIpamIpamNetworkInstanceStateTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
-// NddrIpamIpamNetworkInstanceTag struct
-type NddrIpamIpamNetworkInstanceTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
+	Reason *string       `json:"reason,omitempty"`
+	Status *string       `json:"status,omitempty"`
+	Tag    []*nddov1.Tag `json:"tag,omitempty"`
 }
 
 // NddrIpamIpamState struct
 type NddrIpamIpamState struct {
 	//LastUpdate *string                 `json:"last-update,omitempty"`
 	//Origin     *string                 `json:"origin,omitempty"`
-	Reason *string                 `json:"reason,omitempty"`
-	Status *string                 `json:"status,omitempty"`
-	Tag    []*NddrIpamIpamStateTag `json:"tag,omitempty"`
-}
-
-// NddrIpamIpamStateTag struct
-type NddrIpamIpamStateTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
-}
-
-// NddrIpamIpamTag struct
-type NddrIpamIpamTag struct {
-	Key   *string `json:"key"`
-	Value *string `json:"value,omitempty"`
+	Reason *string       `json:"reason,omitempty"`
+	Status *string       `json:"status,omitempty"`
+	Tag    []*nddov1.Tag `json:"tag,omitempty"`
 }
 
 // Root is the root of the schema

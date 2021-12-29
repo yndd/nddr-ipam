@@ -17,6 +17,7 @@ limitations under the License.
 package intent
 
 import (
+	"context"
 	"os"
 	"strconv"
 	"strings"
@@ -36,7 +37,9 @@ import (
 	"github.com/yndd/ndd-runtime/pkg/ratelimiter"
 
 	"github.com/yndd/nddr-ipam/internal/controllers"
+	"github.com/yndd/nddr-ipam/internal/grpcserver"
 
+	ipamv1alpha1 "github.com/yndd/nddr-ipam/apis/ipam/v1alpha1"
 	"github.com/yndd/nddr-ipam/internal/shared"
 )
 
@@ -79,6 +82,15 @@ var startCmd = &cobra.Command{
 			return errors.Wrap(err, "Cannot create manager")
 		}
 
+		// assign gnmi address
+		var gnmiAddress string
+		if grpcQueryAddress != "" {
+			gnmiAddress = grpcQueryAddress
+		} else {
+			gnmiAddress = getGnmiServerAddress(podname)
+		}
+		zlog.Info("gnmi address", "address", gnmiAddress)
+
 		nddcopts := &shared.NddControllerOptions{
 			Logger:    logging.NewLogrLogger(zlog.WithName("ipam")),
 			Poll:      pollInterval,
@@ -89,6 +101,28 @@ var startCmd = &cobra.Command{
 		// initialize controllers
 		if err := controllers.Setup(mgr, nddCtlrOptions(concurrency), nddcopts); err != nil {
 			return errors.Wrap(err, "Cannot add nddo controllers to manager")
+		}
+
+		nifn := func() ipamv1alpha1.In { return &ipamv1alpha1.IpamNetworkInstance{} }
+		gs, err := grpcserver.New(
+			grpcserver.WithLogger(logging.NewLogrLogger(zlog.WithName("ipamgrpciserver"))),
+			grpcserver.WithClient(mgr.GetClient()),
+			grpcserver.WithIpTree(nddcopts.Iptree),
+			grpcserver.WithNewResourceFn(nifn),
+			grpcserver.WithConfig(
+				grpcserver.Config{
+					Address:    ":" + strconv.Itoa(pkgmetav1.GnmiServerPort),
+					SkipVerify: true,
+					InSecure:   true,
+				},
+			),
+		)
+		if err != nil {
+			return errors.Wrap(err, "unable to initialize server")
+		}
+
+		if err := gs.Run(context.Background()); err != nil {
+			return errors.Wrap(err, "unable to start grpc server")
 		}
 
 		// +kubebuilder:scaffold:builder

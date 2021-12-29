@@ -30,6 +30,7 @@ import (
 	"github.com/yndd/ndd-runtime/pkg/resource"
 	ipamv1alpha1 "github.com/yndd/nddr-ipam/apis/ipam/v1alpha1"
 	"github.com/yndd/nddr-ipam/internal/shared"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,6 +75,7 @@ type Reconciler struct {
 	managed mrManaged
 
 	newIpamNetworkInstance func() ipamv1alpha1.In
+	newIpam                func() ipamv1alpha1.Ip
 	//newIpamNetworkInstanceIpPrefixList func() ipamv1alpha1.IpPrefixList
 	newAllocList func() ipamv1alpha1.AaList
 
@@ -103,6 +105,12 @@ func WithIpTree(iptree map[string]*table.RouteTable) ReconcilerOption {
 	}
 }
 
+func WithNewIpamFn(f func() ipamv1alpha1.Ip) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.newIpam = f
+	}
+}
+
 func WithNewAllocFn(f func() ipamv1alpha1.AaList) ReconcilerOption {
 	return func(r *Reconciler) {
 		r.newAllocList = f
@@ -126,14 +134,14 @@ func defaultMRManaged(m ctrl.Manager) mrManaged {
 func Setup(mgr ctrl.Manager, o controller.Options, nddcopts *shared.NddControllerOptions) error {
 	name := "nddr/" + strings.ToLower(ipamv1alpha1.IpamNetworkInstanceGroupKind)
 	fn := func() ipamv1alpha1.In { return &ipamv1alpha1.IpamNetworkInstance{} }
-	//ippFn := func() ipamv1alpha1.IpPrefixList { return &ipamv1alpha1.IpamNetworkInstanceIpPrefixList{} }
+	ipamfn := func() ipamv1alpha1.Ip { return &ipamv1alpha1.Ipam{} }
 	afn := func() ipamv1alpha1.AaList { return &ipamv1alpha1.AllocList{} }
 
 	r := NewReconciler(mgr,
 		WithLogger(nddcopts.Logger.WithValues("controller", name)),
 		WithNewResourceFn(fn),
 		WithIpTree(nddcopts.Iptree),
-		//WithNewIpPrefixListFn(ippFn),
+		WithNewIpamFn(ipamfn),
 		WithNewAllocFn(afn),
 		WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
 	)
@@ -194,7 +202,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 	record := r.record.WithAnnotations("name", cr.GetAnnotations()[cr.GetName()])
 
-	treename := strings.Join([]string{cr.GetNamespace(), cr.GetName()}, "/")
+	crName := strings.Join([]string{cr.GetNamespace(), cr.GetOrganizationName(), cr.GetIpamName(), cr.GetNetworkInstanceName()}, ".")
 
 	if meta.WasDeleted(cr) {
 		log = log.WithValues("deletion-timestamp", cr.GetDeletionTimestamp())
@@ -212,8 +220,8 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 			return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 		}
 
-		// delete the tree
-		delete(r.iptree, treename)
+		// delete the network Instance from the tree
+		delete(r.iptree, crName)
 
 		// We've successfully delete our resource (if necessary) and
 		// removed our finalizer. If we assume we were the only controller that
@@ -240,14 +248,14 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 	}
 
-	if err := r.handleAppLogic(ctx, cr, treename); err != nil {
+	if err := r.handleAppLogic(ctx, cr, crName); err != nil {
 		record.Event(cr, event.Warning(reasonAppLogicFailed, err))
 		log.Debug("handle applogic failed", "error", err)
 		cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
 		return reconcile.Result{RequeueAfter: shortWait}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 	}
 
-	if err := r.GarbageCollection(ctx, cr, treename); err != nil {
+	if err := r.GarbageCollection(ctx, cr, crName); err != nil {
 		record.Event(cr, event.Warning(reasonCannotGarbageCollect, err))
 		log.Debug("Cannot perform garbage collection", "error", err)
 		cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
@@ -259,30 +267,42 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{RequeueAfter: reconcileTimeout}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 }
 
-func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.In, treename string) error {
-	// get the ipam
-	ipam := &ipamv1alpha1.Ipam{}
+func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.In, crName string) error {
+	ipamname := strings.Join([]string{cr.GetOrganizationName(), cr.GetIpamName()}, ".")
+
+	// get the deployment
+	ipam := r.newIpam()
 	if err := r.client.Get(ctx, types.NamespacedName{
 		Namespace: cr.GetNamespace(),
-		Name:      cr.GetIpamName()}, ipam); err != nil {
-		// can happen when the ipam is not found
-		return err
+		Name:      ipamname}, ipam); err != nil {
+		// can happen when the deployment is not found
+		cr.SetStatus("down")
+		cr.SetReason("organization not found")
+		return errors.Wrap(err, "organization not found")
+	}
+	if ipam.GetCondition(ipamv1alpha1.ConditionKindReady).Status != corev1.ConditionTrue {
+		cr.SetStatus("down")
+		cr.SetReason("organization not ready")
+		return errors.New("organization not ready")
 	}
 	// ipam found
 
 	// only initialize the iptree unless there is an ipam
-
-	if _, ok := r.iptree[treename]; !ok {
-		r.iptree[treename] = table.NewRouteTable()
+	if _, ok := r.iptree[crName]; !ok {
+		r.iptree[crName] = table.NewRouteTable()
 	}
 
 	if err := r.handleStatus(ctx, cr, ipam); err != nil {
 		return err
 	}
+
+	cr.SetOrganizationName(cr.GetOrganizationName())
+	cr.SetIpamName(cr.GetIpamName())
+	cr.SetNetworkInstanceName(cr.GetNetworkInstanceName())
 	return nil
 }
 
-func (r *Reconciler) handleStatus(ctx context.Context, cr ipamv1alpha1.In, ipam *ipamv1alpha1.Ipam) error {
+func (r *Reconciler) handleStatus(ctx context.Context, cr ipamv1alpha1.In, ipam ipamv1alpha1.Ip) error {
 	r.log.Debug("handle networkinstance status", "ipam admin status", ipam.GetAdminState(), "ipam status", ipam.GetStatus())
 	if ipam.GetAdminState() == "disable" {
 		cr.SetStatus("down")
@@ -299,8 +319,8 @@ func (r *Reconciler) handleStatus(ctx context.Context, cr ipamv1alpha1.In, ipam 
 	return nil
 }
 
-func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, treename string) error {
-	log := r.log.WithValues("function", "garbageCollection", "Name", cr.GetName())
+func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, crName string) error {
+	log := r.log.WithValues("function", "garbageCollection", "Name", crName)
 
 	// get all allocations
 	alloc := r.newAllocList()
@@ -350,7 +370,7 @@ func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, 
 				l[key] = val
 			}
 
-			routes := r.iptree[treename].GetByLabel(fullselector)
+			routes := r.iptree[crName].GetByLabel(fullselector)
 			if len(routes) == 0 {
 				// allocate prefix
 				log.Debug("Query not found, allocate a prefix")
@@ -366,7 +386,7 @@ func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, 
 					selector = selector.Add(*req)
 				}
 
-				routes := r.iptree[treename].GetByLabel(selector)
+				routes := r.iptree[crName].GetByLabel(selector)
 
 				// required during startup when not everything is initialized
 				// we break and the reconciliation will take care
@@ -374,8 +394,13 @@ func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, 
 					break
 				}
 
+				prefixLength, err := getPrefixLength(alloc, cr)
+				if err != nil {
+					return errors.Wrap(err, "prefix Length not properly configured")
+				}
+
 				// allocation strategy -> we take the first prefix for now
-				a, ok := r.iptree[treename].FindFreePrefix(routes[0].IPPrefix(), uint8(alloc.GetPrefixLength()))
+				a, ok := r.iptree[crName].FindFreePrefix(routes[0].IPPrefix(), uint8(prefixLength))
 				if !ok {
 					log.Debug("allocation failed")
 					return errors.New("allocation failed")
@@ -383,7 +408,7 @@ func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, 
 
 				route := table.NewRoute(a)
 				route.UpdateLabel(l)
-				r.iptree[treename].Add(route)
+				r.iptree[crName].Add(route)
 
 				prefix = route.String()
 			} else {
@@ -441,4 +466,17 @@ func (r *Reconciler) GarbageCollection(ctx context.Context, cr ipamv1alpha1.In, 
 	}
 
 	return nil
+}
+
+func getPrefixLength(cr ipamv1alpha1.Aa, ni ipamv1alpha1.In) (uint32, error) {
+	//prefixLength := cr.GetPrefixLength()
+	//if prefixLength == nil {
+	purpose := cr.GetSelector()[ipamv1alpha1.KeyPurpose]
+	af := cr.GetSelector()[ipamv1alpha1.KeyAddressFamily]
+	prefixLength := ni.GetDefaultPrefixLength(purpose, af)
+	if prefixLength == nil {
+		return 0, errors.New("default prefix length not configured prop")
+	}
+	//}
+	return *prefixLength, nil
 }

@@ -1,10 +1,19 @@
 apiVersion: ipam.nddr.yndd.io/v1alpha1
 kind: IpamNetworkInstance
 metadata:
-  name: default
+  name: nokia.default.default
   namespace: default
 spec:
-  ipam-name: test
   network-instance:
     admin-state: enable
     description: "default network instance"
+    default-prefix-length:
+      isl:
+        address-family:
+          ipv4: 31
+          ipv6: 127
+      loopback:
+        address-family:
+          ipv4: 32
+          ipv6: 128
+      

@@ -16,7 +16,38 @@ spec:
     singular: ipamnetworkinstanceipprefix
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.kind=='Synced')].status
+      name: SYNC
+      type: string
+    - jsonPath: .status.conditions[?(@.kind=='Ready')].status
+      name: STATUS
+      type: string
+    - jsonPath: .status.organization-name
+      name: ORG
+      type: string
+    - jsonPath: .status.ipam-name
+      name: IPAM
+      type: string
+    - jsonPath: .status.network-instance-name
+      name: NI
+      type: string
+    - jsonPath: .spec.ip-prefix.prefix
+      name: PREFIX
+      type: string
+    - jsonPath: .status.ip-prefix.state.tag[?(@.key=='address-family')].value
+      name: AF
+      type: string
+    - jsonPath: .spec.ip-prefix.tag[?(@.key=='purpose')].value
+      name: PURPOSE
+      type: string
+    - jsonPath: .status.ip-prefix.state.status
+      name: STATUS
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: IpamNetworkInstanceIpPrefix is the Schema for the IpamNetworkInstanceIpPrefix
@@ -39,7 +70,7 @@ spec:
               of a IpamNetworkInstanceIpPrefix.
             properties:
               ip-prefix:
-                description: IpamTenantNetworkInstanceIpPrefix struct
+                description: nddv1.ResourceSpec `json:",inline"`
                 properties:
                   admin-state:
                     default: enable
@@ -59,26 +90,14 @@ spec:
                   tag:
                     description: RirName *string                                 `json:"rir-name,omitempty"`
                     items:
-                      description: IpamNetworkInstanceIpPrefixTag struct
                       properties:
                         key:
-                          description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
-                          pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
                           type: string
                         value:
-                          description: kubebuilder:validation:MinLength=1 kubebuilder:validation:MaxLength=255
-                          pattern: '[A-Za-z0-9 !@#$^&()|+=`~.,''/_:;?-]*'
                           type: string
-                      required:
-                      - key
                       type: object
                     type: array
                 type: object
-              ipam-name:
-                description: nddv1.ResourceSpec `json:",inline"`
-                type: string
-              network-instance-name:
-                type: string
             type: object
           status:
             description: A IpamNetworkInstanceIpPrefixStatus represents the observed
@@ -117,7 +136,7 @@ spec:
                   - status
                   type: object
                 type: array
-              network-instance:
+              ip-prefix:
                 description: NddrIpamIpamNetworkInstanceIpPrefix struct
                 properties:
                   admin-state:
@@ -172,33 +191,34 @@ spec:
                         type: string
                       tag:
                         items:
-                          description: NddrIpamIpamNetworkInstanceIpPrefixStateTag
-                            struct
                           properties:
                             key:
                               type: string
                             value:
                               type: string
-                          required:
-                          - key
                           type: object
                         type: array
                     type: object
                   tag:
                     items:
-                      description: NddrIpamIpamNetworkInstanceIpPrefixTag struct
                       properties:
                         key:
                           type: string
                         value:
                           type: string
-                      required:
-                      - key
                       type: object
                     type: array
                 required:
                 - prefix
                 type: object
+              ip-prefix-name:
+                type: string
+              ipam-name:
+                type: string
+              network-instance-name:
+                type: string
+              organization-name:
+                type: string
             type: object
         type: object
     served: true

@@ -16,7 +16,23 @@ spec:
     singular: ipam
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.kind=='Synced')].status
+      name: SYNC
+      type: string
+    - jsonPath: .status.conditions[?(@.kind=='Ready')].status
+      name: STATUS
+      type: string
+    - jsonPath: .status.organization-name
+      name: ORG
+      type: string
+    - jsonPath: .status.ipam-name
+      name: iPAM
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: AGE
+      type: date
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: IpamIpam is the Schema for the Ipam API
@@ -46,10 +62,6 @@ spec:
                     - enable
                     type: string
                   description:
-                    type: string
-                  tenant-name:
-                    type: string
-                  vpc-name:
                     type: string
                 type: object
             type: object
@@ -165,29 +177,21 @@ spec:
                                     type: string
                                   tag:
                                     items:
-                                      description: NddrIpamIpamNetworkInstanceIpAddressStateTag
-                                        struct
                                       properties:
                                         key:
                                           type: string
                                         value:
                                           type: string
-                                      required:
-                                      - key
                                       type: object
                                     type: array
                                 type: object
                               tag:
                                 items:
-                                  description: NddrIpamIpamNetworkInstanceIpAddressTag
-                                    struct
                                   properties:
                                     key:
                                       type: string
                                     value:
                                       type: string
-                                  required:
-                                  - key
                                   type: object
                                 type: array
                             required:
@@ -250,29 +254,21 @@ spec:
                                     type: string
                                   tag:
                                     items:
-                                      description: NddrIpamIpamNetworkInstanceIpPrefixStateTag
-                                        struct
                                       properties:
                                         key:
                                           type: string
                                         value:
                                           type: string
-                                      required:
-                                      - key
                                       type: object
                                     type: array
                                 type: object
                               tag:
                                 items:
-                                  description: NddrIpamIpamNetworkInstanceIpPrefixTag
-                                    struct
                                   properties:
                                     key:
                                       type: string
                                     value:
                                       type: string
-                                  required:
-                                  - key
                                   type: object
                                 type: array
                             required:
@@ -320,29 +316,21 @@ spec:
                                     type: string
                                   tag:
                                     items:
-                                      description: NddrIpamIpamNetworkInstanceIpRangeStateTag
-                                        struct
                                       properties:
                                         key:
                                           type: string
                                         value:
                                           type: string
-                                      required:
-                                      - key
                                       type: object
                                     type: array
                                 type: object
                               tag:
                                 items:
-                                  description: NddrIpamIpamNetworkInstanceIpRangeTag
-                                    struct
                                   properties:
                                     key:
                                       type: string
                                     value:
                                       type: string
-                                  required:
-                                  - key
                                   type: object
                                 type: array
                             required:
@@ -363,27 +351,21 @@ spec:
                               type: string
                             tag:
                               items:
-                                description: NddrIpamIpamNetworkInstanceStateTag struct
                                 properties:
                                   key:
                                     type: string
                                   value:
                                     type: string
-                                required:
-                                - key
                                 type: object
                               type: array
                           type: object
                         tag:
                           items:
-                            description: NddrIpamIpamNetworkInstanceTag struct
                             properties:
                               key:
                                 type: string
                               value:
                                 type: string
-                            required:
-                            - key
                             type: object
                           type: array
                       type: object
@@ -399,14 +381,11 @@ spec:
                         type: string
                       tag:
                         items:
-                          description: NddrIpamIpamStateTag struct
                           properties:
                             key:
                               type: string
                             value:
                               type: string
-                          required:
-                          - key
                           type: object
                         type: array
                     type: object
@@ -415,6 +394,10 @@ spec:
                   vpc-name:
                     type: string
                 type: object
+              ipam-name:
+                type: string
+              organization-name:
+                type: string
             type: object
         type: object
     served: true

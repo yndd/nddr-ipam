@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	nddv1 "github.com/yndd/ndd-runtime/apis/common/v1"
+	nddov1 "github.com/yndd/nddo-runtime/apis/common/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -38,7 +39,8 @@ type IpamIpamNetworkInstance struct {
 	AdminState *string `json:"admin-state,omitempty"`
 	// +kubebuilder:validation:Enum=`first-available`;`deterministic`
 	// +kubebuilder:default:="first-available"
-	AllocationStrategy *string `json:"allocation-strategy,omitempty"`
+	AllocationStrategy  *string                                                `json:"allocation-strategy,omitempty"`
+	DefaultPrefixLength map[string]*IpamIpamNetworkInstanceDefaultPrefixLength `json:"default-prefix-length,omitempty"`
 	// kubebuilder:validation:MinLength=1
 	// kubebuilder:validation:MaxLength=255
 	// +kubebuilder:validation:Required
@@ -49,34 +51,26 @@ type IpamIpamNetworkInstance struct {
 	// +kubebuilder:validation:Required
 	// +kubebuilder:validation:Pattern="[A-Za-z0-9 !@#$^&()|+=`~.,'/_:;?-]*"
 	// +kubebuilder:default:="default"
-	Name *string                       `json:"name,omitempty"`
-	Tag  []*IpamIpamNetworkInstanceTag `json:"tag,omitempty"`
+	Name *string       `json:"name,omitempty"`
+	Tag  []*nddov1.Tag `json:"tag,omitempty"`
 }
 
-// IpamTenantNetworkInstanceTag struct
-type IpamIpamNetworkInstanceTag struct {
-	// kubebuilder:validation:MinLength=1
-	// kubebuilder:validation:MaxLength=255
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="[A-Za-z0-9 !@#$^&()|+=`~.,'/_:;?-]*"
-	Key *string `json:"key"`
-	// kubebuilder:validation:MinLength=1
-	// kubebuilder:validation:MaxLength=255
-	// +kubebuilder:validation:Required
-	// +kubebuilder:validation:Pattern="[A-Za-z0-9 !@#$^&()|+=`~.,'/_:;?-]*"
-	Value *string `json:"value,omitempty"`
+type IpamIpamNetworkInstanceDefaultPrefixLength struct {
+	AddressFamily map[string]*uint32 `json:"address-family,omitempty"`
 }
 
 // A IpamSpec defines the desired state of a Ipam.
 type IpamNetworkInstanceSpec struct {
 	//nddv1.ResourceSpec `json:",inline"`
-	IpamName            *string                  `json:"ipam-name,omitempty"`
 	IpamNetworkInstance *IpamIpamNetworkInstance `json:"network-instance,omitempty"`
 }
 
 // A IpamStatus represents the observed state of a Ipam.
 type IpamNetworkInstanceStatus struct {
 	nddv1.ConditionedStatus `json:",inline"`
+	OrganizationName        *string                      `json:"organization-name,omitempty"`
+	IpamName                *string                      `json:"ipam-name,omitempty"`
+	NetworkInstanceName     *string                      `json:"network-instance-name,omitempty"`
 	IpamNetworkInstance     *NddrIpamIpamNetworkInstance `json:"network-instance,omitempty"`
 }
 
@@ -84,6 +78,12 @@ type IpamNetworkInstanceStatus struct {
 
 // IpamNetworkInstance is the Schema for the IpamNetworkInstance API
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="SYNC",type="string",JSONPath=".status.conditions[?(@.kind=='Synced')].status"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.conditions[?(@.kind=='Ready')].status"
+// +kubebuilder:printcolumn:name="ORG",type="string",JSONPath=".status.organization-name"
+// +kubebuilder:printcolumn:name="IPAM",type="string",JSONPath=".status.ipam-name"
+// +kubebuilder:printcolumn:name="NI",type="string",JSONPath=".status.network-instance-name"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 type IpamNetworkInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

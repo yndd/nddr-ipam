@@ -7,7 +7,6 @@ spec:
   ipam-name: test
   network-instance-name: default
   alloc:
-    prefix-length: 32
     selector:
     - key: purpose
       value: loopback

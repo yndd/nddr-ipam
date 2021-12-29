@@ -20,6 +20,7 @@ import (
 	"reflect"
 
 	nddv1 "github.com/yndd/ndd-runtime/apis/common/v1"
+	nddov1 "github.com/yndd/nddo-runtime/apis/common/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 )
@@ -50,32 +51,23 @@ type IpamAlloc struct {
 	IpPrefix      *string `json:"ip-prefix,omitempty"`
 	// kubebuilder:validation:Minimum=0
 	// kubebuilder:validation:Maximum=128
-	PrefixLength *uint32                  `json:"prefix-length,omitempty"`
-	Selector     []*IpamAllocSelectorTag  `json:"selector,omitempty"`
-	SourceTag    []*IpamAllocSourceTagTag `json:"source-tag,omitempty"`
-}
-
-type IpamAllocSelectorTag struct {
-	Key   *string `json:"key,omitempty"`
-	Value *string `json:"value,omitempty"`
-}
-
-type IpamAllocSourceTagTag struct {
-	Key   *string `json:"key,omitempty"`
-	Value *string `json:"value,omitempty"`
+	//PrefixLength *uint32       `json:"prefix-length,omitempty"`
+	Selector  []*nddov1.Tag `json:"selector,omitempty"`
+	SourceTag []*nddov1.Tag `json:"source-tag,omitempty"`
 }
 
 // A AllocSpec defines the desired state of a Alloc.
 type AllocSpec struct {
 	//nddv1.ResourceSpec `json:",inline"`
-	IpamName            *string    `json:"ipam-name,omitempty"`
-	NetworkInstanceName *string    `json:"network-instance-name,omitempty"`
-	Alloc               *IpamAlloc `json:"alloc,omitempty"`
+	Alloc *IpamAlloc `json:"alloc,omitempty"`
 }
 
 // A AllocStatus represents the observed state of a Alloc.
 type AllocStatus struct {
 	nddv1.ConditionedStatus `json:",inline"`
+	OrganizationName        *string        `json:"organization-name,omitempty"`
+	IpamName                *string        `json:"ipam-name,omitempty"`
+	NetworkInstanceName     *string        `json:"network-instance-name,omitempty"`
 	Alloc                   *NddrIpamAlloc `json:"alloc,omitempty"`
 }
 

@@ -31,6 +31,7 @@ import (
 	ipamv1alpha1 "github.com/yndd/nddr-ipam/apis/ipam/v1alpha1"
 	"github.com/yndd/nddr-ipam/internal/shared"
 	"inet.af/netaddr"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
@@ -74,7 +75,8 @@ type Reconciler struct {
 	record  event.Recorder
 	managed mrManaged
 
-	newAlloc func() ipamv1alpha1.Aa
+	newAlloc               func() ipamv1alpha1.Aa
+	newIpamNetworkInstance func() ipamv1alpha1.In
 
 	iptree map[string]*table.RouteTable
 }
@@ -93,6 +95,12 @@ func WithLogger(log logging.Logger) ReconcilerOption {
 func WithNewReourceFn(f func() ipamv1alpha1.Aa) ReconcilerOption {
 	return func(r *Reconciler) {
 		r.newAlloc = f
+	}
+}
+
+func WithNewNetworkInstanceFn(f func() ipamv1alpha1.In) ReconcilerOption {
+	return func(r *Reconciler) {
+		r.newIpamNetworkInstance = f
 	}
 }
 
@@ -119,10 +127,12 @@ func defaultMRManaged(m ctrl.Manager) mrManaged {
 func Setup(mgr ctrl.Manager, o controller.Options, nddcopts *shared.NddControllerOptions) error {
 	name := "nddr/" + strings.ToLower(ipamv1alpha1.AllocGroupKind)
 	fn := func() ipamv1alpha1.Aa { return &ipamv1alpha1.Alloc{} }
+	nifn := func() ipamv1alpha1.In { return &ipamv1alpha1.IpamNetworkInstance{} }
 
 	r := NewReconciler(mgr,
 		WithLogger(nddcopts.Logger.WithValues("controller", name)),
 		WithNewReourceFn(fn),
+		WithNewNetworkInstanceFn(nifn),
 		WithIpTree(nddcopts.Iptree),
 		WithRecorder(event.NewAPIRecorder(mgr.GetEventRecorderFor(name))),
 	)
@@ -173,13 +183,13 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	}
 	record := r.record.WithAnnotations("name", cr.GetAnnotations()[cr.GetName()])
 
-	treename := strings.Join([]string{cr.GetNamespace(), cr.GetNetworkInstanceName()}, "/")
+	crName := strings.Join([]string{cr.GetNamespace(), cr.GetOrganizationName(), cr.GetIpamName(), cr.GetNetworkInstanceName()}, ".")
 
 	if meta.WasDeleted(cr) {
 		log = log.WithValues("deletion-timestamp", cr.GetDeletionTimestamp())
 
 		// check if allocations exists
-		if _, ok := r.iptree[treename]; ok {
+		if _, ok := r.iptree[crName]; ok {
 			if prefix, ok := cr.HasIpPrefix(); ok {
 				p, err := netaddr.ParseIPPrefix(prefix)
 				if err != nil {
@@ -188,20 +198,23 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 					cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
 					return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 				}
-				routes := r.iptree[treename].Children(p)
-
-				if len(routes) > 0 {
-					// We cannot delete the prefix yet due to existing allocations
-					record.Event(cr, event.Warning(reasonCannotDeleteDueToAllocations, err))
-					log.Debug("Cannot delete prefix due to existing allocations", "error", err)
-					return reconcile.Result{RequeueAfter: shortWait}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
-				}
+				/*
+					routes := r.iptree[treename].Children(p)
+				*/
+				/*
+					if len(routes) > 0 {
+						// We cannot delete the prefix yet due to existing allocations
+						record.Event(cr, event.Warning(reasonCannotDeleteDueToAllocations, err))
+						log.Debug("Cannot delete prefix due to existing allocations", "error", err)
+						return reconcile.Result{RequeueAfter: shortWait}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
+					}
+				*/
 
 				route := table.NewRoute(p)
 				// TODO do we need to add the labels or not
 				//route.UpdateLabel(cr.GetTags())
 
-				if _, _, err := r.iptree[treename].Delete(route); err != nil {
+				if _, _, err := r.iptree[crName].Delete(route); err != nil {
 					log.Debug("IPPrefix deleteion failed", "prefix", p)
 					cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
 					return reconcile.Result{Requeue: true}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
@@ -247,7 +260,7 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 		}
 	*/
 
-	if err := r.handleAppLogic(ctx, cr, treename); err != nil {
+	if err := r.handleAppLogic(ctx, cr, crName); err != nil {
 		record.Event(cr, event.Warning(reasonAppLogicFailed, err))
 		log.Debug("handle applogic failed", "error", err)
 		cr.SetConditions(nddv1.ReconcileError(err), ipamv1alpha1.NotReady())
@@ -258,31 +271,32 @@ func (r *Reconciler) Reconcile(ctx context.Context, req reconcile.Request) (reco
 	return reconcile.Result{}, errors.Wrap(r.client.Status().Update(ctx, cr), errUpdateStatus)
 }
 
-func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, treename string) error {
+func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, crName string) error {
 	log := r.log.WithValues("name", cr.GetName())
 	log.Debug("handleAppLogic")
 	// get the ipam -> we need this mainly for parent status
-	ipam := &ipamv1alpha1.Ipam{}
-	if err := r.client.Get(ctx, types.NamespacedName{
-		Namespace: cr.GetNamespace(),
-		Name:      cr.GetIpamName()}, ipam); err != nil {
-		// can happen when the ipam is not found
-		log.Debug("Ipam not available")
-		return errors.Wrap(err, "Ipam not available")
-	}
-	// ipam found
 
-	// get networkinstance -> we need this mainly for parent status
-	ni := &ipamv1alpha1.IpamNetworkInstance{}
+	organizationName := cr.GetOrganizationName()
+	ipamName := cr.GetIpamName()
+	networkInstanceName := cr.GetNetworkInstanceName()
+
+	niname := strings.Join([]string{organizationName, ipamName, networkInstanceName}, ".")
+
+	ni := r.newIpamNetworkInstance()
 	if err := r.client.Get(ctx, types.NamespacedName{
 		Namespace: cr.GetNamespace(),
-		Name:      cr.GetNetworkInstanceName()}, ni); err != nil {
+		Name:      niname}, ni); err != nil {
 		// can happen when the networkinstance is not found
 		log.Debug("NetworkInstance not available")
-		return errors.Wrap(err, "NetworkInstance not available")
+		return errors.New("NetworkInstance not available")
 	}
 
-	if _, ok := r.iptree[treename]; !ok {
+	if ni.GetCondition(ipamv1alpha1.ConditionKindReady).Status != corev1.ConditionTrue {
+		log.Debug("NetworkInstance not ready")
+		return errors.New("NetworkInstance not ready")
+	}
+
+	if _, ok := r.iptree[crName]; !ok {
 		log.Debug("Parent Routing table not ready")
 		return errors.New("Parent Routing table not ready ")
 	}
@@ -333,7 +347,7 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 		route := table.NewRoute(a)
 		route.UpdateLabel(l)
 
-		if err := r.iptree[treename].Add(route); err != nil {
+		if err := r.iptree[crName].Add(route); err != nil {
 			log.Debug("route insertion failed")
 			if !strings.Contains(err.Error(), "already exists") {
 				return errors.Wrap(err, "route insertion failed")
@@ -344,7 +358,7 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 	} else {
 		// alloc has no prefix assigned, try to assign prefix
 		// check if the prefix already exists
-		routes := r.iptree[treename].GetByLabel(fullselector)
+		routes := r.iptree[crName].GetByLabel(fullselector)
 		if len(routes) == 0 {
 			// allocate prefix
 			log.Debug("Query not found, allocate a prefix")
@@ -360,7 +374,7 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 				selector = selector.Add(*req)
 			}
 
-			routes := r.iptree[treename].GetByLabel(selector)
+			routes := r.iptree[crName].GetByLabel(selector)
 
 			// required during startup when not everything is initialized
 			// we break and the reconciliation will take care
@@ -370,7 +384,7 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 			}
 
 			if cr.GetIpPrefix() != "" {
-				// allocate prefix fromallocation spec
+				// allocate prefix from allocation spec
 				a, err := netaddr.ParseIPPrefix(cr.GetIpPrefix())
 				if err != nil {
 					log.Debug("parsing failed")
@@ -378,14 +392,19 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 				}
 				route := table.NewRoute(a)
 				route.UpdateLabel(l)
-				if err := r.iptree[treename].Add(route); err != nil {
+				if err := r.iptree[crName].Add(route); err != nil {
 					log.Debug("route insertion failed")
 					return errors.Wrap(err, "route insertion failed")
 				}
 				prefix = route.String()
 			} else {
 				// TBD we take the first prefix
-				a, ok := r.iptree[treename].FindFreePrefix(routes[0].IPPrefix(), uint8(cr.GetPrefixLength()))
+				prefixLength, err := getPrefixLength(cr, ni)
+				if err != nil {
+					return errors.Wrap(err, "prefix Length not properly configured")
+				}
+
+				a, ok := r.iptree[crName].FindFreePrefix(routes[0].IPPrefix(), uint8(prefixLength))
 				if !ok {
 					log.Debug("allocation failed")
 					return errors.New("allocation failed")
@@ -393,7 +412,7 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 
 				route := table.NewRoute(a)
 				route.UpdateLabel(l)
-				if err := r.iptree[treename].Add(route); err != nil {
+				if err := r.iptree[crName].Add(route); err != nil {
 					log.Debug("route insertion failed")
 					return errors.Wrap(err, "route insertion failed")
 				}
@@ -414,4 +433,17 @@ func (r *Reconciler) handleAppLogic(ctx context.Context, cr ipamv1alpha1.Aa, tre
 
 	return nil
 
+}
+
+func getPrefixLength(cr ipamv1alpha1.Aa, ni ipamv1alpha1.In) (uint32, error) {
+	//prefixLength := cr.GetPrefixLength()
+	//if prefixLength == nil {
+	purpose := cr.GetSelector()[ipamv1alpha1.KeyPurpose]
+	af := cr.GetSelector()[ipamv1alpha1.KeyAddressFamily]
+	prefixLength := ni.GetDefaultPrefixLength(purpose, af)
+	if prefixLength == nil {
+		return 0, errors.New("default prefix length not configured prop")
+	}
+	//}
+	return *prefixLength, nil
 }

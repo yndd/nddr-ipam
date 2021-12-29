@@ -33,8 +33,6 @@ const (
 
 // Ipam struct
 type IpamIpam struct {
-	TenantName *string `json:"tenant-name,omitempty"`
-	VpcName    *string `json:"vpc-name,omitempty"`
 	// +kubebuilder:validation:Enum=`disable`;`enable`
 	// +kubebuilder:default:="enable"
 	AdminState  *string `json:"admin-state,omitempty"`
@@ -51,6 +49,8 @@ type IpamSpec struct {
 // A IpamStatus represents the observed state of a Ipam.
 type IpamStatus struct {
 	nddv1.ConditionedStatus `json:",inline"`
+	OrganizationName        *string       `json:"organization-name,omitempty"`
+	IpamName                *string       `json:"ipam-name,omitempty"`
 	Ipam                    *NddrIpamIpam `json:"ipam,omitempty"`
 }
 
@@ -58,6 +58,11 @@ type IpamStatus struct {
 
 // IpamIpam is the Schema for the Ipam API
 // +kubebuilder:subresource:status
+// +kubebuilder:printcolumn:name="SYNC",type="string",JSONPath=".status.conditions[?(@.kind=='Synced')].status"
+// +kubebuilder:printcolumn:name="STATUS",type="string",JSONPath=".status.conditions[?(@.kind=='Ready')].status"
+// +kubebuilder:printcolumn:name="ORG",type="string",JSONPath=".status.organization-name"
+// +kubebuilder:printcolumn:name="iPAM",type="string",JSONPath=".status.ipam-name"
+// +kubebuilder:printcolumn:name="AGE",type="date",JSONPath=".metadata.creationTimestamp"
 type Ipam struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`

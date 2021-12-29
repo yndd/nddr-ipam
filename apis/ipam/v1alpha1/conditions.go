@@ -27,7 +27,7 @@ import (
 // Condition Kinds.
 const (
 	// A ConditionKindAllocationReady indicates whether the allocation is ready.
-	ConditionKindAllocationReady nddv1.ConditionKind = "Ready"
+	ConditionKindReady nddv1.ConditionKind = "Ready"
 )
 
 // ConditionReasons a package is or is not installed.
@@ -41,7 +41,7 @@ const (
 // Ready indicates that the resource is ready.
 func Ready() nddv1.Condition {
 	return nddv1.Condition{
-		Kind:               ConditionKindAllocationReady,
+		Kind:               ConditionKindReady,
 		Status:             corev1.ConditionTrue,
 		LastTransitionTime: metav1.Now(),
 		Reason:             ConditionReasonReady,
@@ -51,7 +51,7 @@ func Ready() nddv1.Condition {
 // NotReady indicates that the resource is not ready.
 func NotReady() nddv1.Condition {
 	return nddv1.Condition{
-		Kind:               ConditionKindAllocationReady,
+		Kind:               ConditionKindReady,
 		Status:             corev1.ConditionFalse,
 		LastTransitionTime: metav1.Now(),
 		Reason:             ConditionReasonNotReady,
@@ -61,7 +61,7 @@ func NotReady() nddv1.Condition {
 // Allocating indicates that the resource is being allocated
 func Allocating() nddv1.Condition {
 	return nddv1.Condition{
-		Kind:               ConditionKindAllocationReady,
+		Kind:               ConditionKindReady,
 		Status:             corev1.ConditionFalse,
 		LastTransitionTime: metav1.Now(),
 		Reason:             ConditionReasonAllocating,
@@ -71,7 +71,7 @@ func Allocating() nddv1.Condition {
 // DeAllocating indicates that the resource is being deallocated.
 func DeAllocating() nddv1.Condition {
 	return nddv1.Condition{
-		Kind:               ConditionKindAllocationReady,
+		Kind:               ConditionKindReady,
 		Status:             corev1.ConditionFalse,
 		LastTransitionTime: metav1.Now(),
 		Reason:             ConditionReasonDeAllocating,
